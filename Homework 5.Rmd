@@ -1,0 +1,181 @@
+---
+title : 통계학특강 과제 5
+author : G202158006 정다현0
+---
+
+## 5.8
+
+### a) 풀이는 앞에 있습니다.
+
+### b) CMC estimator
+```{r}
+x <- rexp(1000, 0.1)
+CMC <- mean(I(x>10))
+```
+
+### c) conditional MC estimator
+```{r}
+res <- replicate(1000, expr={
+  R <- rgeom(1, prob=0.1)
+  x <- rexp(R, rate=1)
+  y <- sum(x)-x[1]
+  ifelse(y<10, exp(-10+y), 1) # cdf는 1보다 클 수 없으므로 이렇게 정의함.
+})
+
+conditional.MC <- mean(res, na.rm=T)
+
+
+## comparsion
+(result <- data.frame(true = 1-pexp(10, rate=0.1),
+                      CMC, conditional.MC))
+```
+
+## 5.9
+```{r}
+## sample size
+N <- 10000
+p <- c()
+for(i in 1:7) p[i] <- dgeom(i, 0.25) # p = 0.25
+p <- c(p, 1-sum(p))
+
+(n <- round(p*N))
+
+## estimate
+# R=1,...,7
+tmp <- c()
+for(i in 1:(length(n)-1)) {
+  H <- replicate(n[i], expr={
+    x <- rexp(i, rate=1)
+    sum(x)
+  })
+  tmp[i] <- mean(H)
+}
+
+
+# R > 8
+prob <- c()
+for(i in 1:100) prob[i] <- dexp(i+7, rate=1)
+R <- sample(1:100, n[8], prob=prob , replace = T)
+
+for(k in 1:length(R)) {
+  x <- rexp(R[k], rate=1) 
+  H <- sum(x)
+}
+tmp[8] <- mean(H)
+
+lhat <- sum(p*tmp)
+```
+
+
+
+
+```{r}
+## optimal sample size
+
+# sigma 추정
+R <- c()
+X <- list()
+for(i in 1:1000) {
+  R[i] <- rgeom(1, 0.25)
+  X[[i]] <- rexp(R[i], rate=1)
+}
+
+
+# R = 1,...,7
+SR <- sigma <- c()
+for(i in 1:7) {
+  index <- which(R==i)
+  for(j in 1:length(index)) SR <- c(SR, sum(X[[index[j]]]))
+  sigma[i] <- var(SR)
+}
+
+# R > 7
+index <- which(R>7)
+for(j in 1:length(index)) SR <- c(SR, sum(X[[index[j]]]))
+sigma[8] <- var(SR)
+
+# Neyman allocation
+nstar <- N*(p*sigma)/sum(p*sigma)
+
+
+# ## estimate
+# res <- H <- c()
+# for(i in 1:length(nstar)) {
+#   x <- rexp(nstar[i], rate=1)
+#   H[i] <- sum(x)
+# }
+# lshat <- sum(p*H)
+
+
+
+## estimate
+# R=1,...,7
+tmp <- c()
+for(i in 1:(length(nstar)-1)) {
+  H <- replicate(nstar[i], expr={
+    x <- rexp(i, rate=1)
+    sum(x)
+  })
+  tmp[i] <- mean(H)
+}
+
+
+# R > 8
+R <- sample(1:100, nstar[8], prob=prob , replace = T)
+
+for(k in 1:length(R)) {
+  x <- rexp(R[k], rate=1) 
+  H <- sum(x)
+}
+tmp[8] <- mean(H)
+
+lshat <- sum(p*tmp)
+```
+
+```{r}
+## comparsion
+(result <- data.frame(proportional = lhat, Neyman = lshat))
+```
+
+
+
+## 5.15 (Importance sampling)
+
+#### 역변환법을 이용해 g로부터 sample 추출.
+```{r}
+N <- 10000
+u <- runif(N)
+x <- 4-log(1-u)
+g <- function(x) exp(-x+4)
+H <- I(x>4)
+mean(H*dnorm(x)/g(x))
+
+# true
+1-pnorm(4)
+```
+
+## 5.17
+```{r}
+
+H <- function(X) {
+  path <- matrix(0, nrow=nrow(X), ncol=4)
+  path[,1] <- X[,1]+X[,4]
+  path[,2] <- X[,1]+X[,3]+X[,5]
+  path[,3] <- X[,2]+X[,3]+X[,4]
+  path[,4] <- X[,2]+X[,5]
+  apply(path, 1, min)
+}
+
+
+# v 추정
+
+N <- 1000
+u <- c(1,1,0.5,2,1.5)
+X <- matrix(0,nrow=N, ncol=length(u))
+for(i in 1:length(u)) X[,i] <- rexp(N, rate=u[i])
+
+
+
+
+```
+

@@ -1,0 +1,82 @@
+---
+title : 통계학특강 과제 4 
+author : G202158006 정다현
+---
+
+
+## 4.10 Regenerative Markov chain 
+```{r}
+sample <- c(0,3,0,1,2,1,0,2,0,1,0,1,0,2,0)
+index <- 1:length(sample)
+
+time <- which(sample==0)
+tau <- sapply(1:(length(time)-1), function(i) time[(i+1)]-time[i] )  # cycle length
+cut <- cumsum(tau)
+R <- sapply(1:(length(time)-1), function(i) sum( queue[time[i]:cut[i]] )) # reward
+
+tauhat <- mean(tau)
+Rhat <- mean(R)
+lhat <- Rhat/tauhat
+lhat
+
+## C.I
+S.square <- sd(R)^2-2*lhat*cov(R, tau)+lhat*sd(tau)^2
+se.hat <- sqrt(S.square)/(tauhat*sqrt(length(sample)))
+CI <- c(lhat-qnorm(0.975)*se.hat, lhat+qnorm(0.975)*se.hat)
+CI
+```
+<br>
+
+## 4.11 (GI/G/1 queue)
+
+```{r}
+
+
+```
+
+<br>
+
+## 5.2 (the expected length of the shortest path)
+
+```{r}
+set.seed(1)
+N <- 100000
+lambda <- c(1,1,0.5,2,1.5)
+
+# CMC estimator
+link.CMC <- matrix(0, nrow=N, ncol=length(lambda))
+
+u <- runif(N)
+for(i in 1:length(lambda)) link.CMC[,i] <- dexp(u, rate=1/lambda[i])
+H.CMC <- apply(link.CMC, 1, function(x) min(x[1]+x[4], x[1]+x[3]+x[5], x[2]+x[3]+x[4], x[2]+x[5]))
+CMC <- mean(H.CMC)
+
+# Antithetic estimator
+link.Ant.x <- link.Ant.y <- matrix(0, nrow=N/2, ncol=length(lambda))
+
+u <- runif(N/2)
+
+x <- dexp(u, rate=1/lambda[i])
+for(i in 1:length(lambda)) link.Ant.x[,i] <- dexp(u, rate=1/lambda[i])
+H.Ant.x <- apply(link.Ant.x, 1, function(x) min(x[1]+x[4], x[1]+x[3]+x[5], x[2]+x[3]+x[4], x[2]+x[5]))
+
+y <- dexp(1-u, rate=1/lambda[i])
+for(i in 1:length(lambda)) link.Ant.y[,i] <- dexp(1-u, rate=1/lambda[i])
+H.Ant.y <- apply(link.Ant.y, 1, function(x) min(x[1]+x[4], x[1]+x[3]+x[5], x[2]+x[3]+x[4], x[2]+x[5]))
+
+Ant <- mean(c(H.Ant.x, H.Ant.y))
+
+# efficiency
+CMC; Ant
+1+cov(H.Ant.x, H.Ant.y)/sd(H.CMC)^2 # 분산비
+```
+
+CMC estimator를 대신해서 antithetic estimator를 사용하면 분산이 많이 감소함을 알 수 있다.
+
+<br>
+
+## 5.4
+```{r}
+
+```
+

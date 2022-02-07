@@ -1,0 +1,284 @@
+rm(list=ls())
+
+## 2.28
+```{r}
+MM1.queue <- function(lambda, mu, simul.time) 
+  {
+  t <- 0 
+  queue <- 0 
+  
+  T1 <- rexp(1,rate=lambda)
+  t <- T1
+
+  eventsTime <- T1
+  currentqueue <- 0
+  N <- 1 
+  
+  while (t<simul.time) {
+    N <- N+1
+    
+ 
+    if(currentqueue>0) {  # nonempty queue
+      T1 <- rexp(1,rate=lambda+mu) 
+      
+      p <- runif(1,0,1) # arrival or departure?
+      queue[N] <- currentqueue
+      currentqueue <- ifelse(p<lambda/(lambda+mu), 
+                             currentqueue+1, # arrival
+                             currentqueue-1) # departure
+      
+    } else {  # empty queue
+      T1 <- rexp(1,rate=lambda)
+      queue[N] <- currentqueue
+      currentqueue <- 1
+    }
+    
+    t <- t+T1 # time of next arrival
+    eventsTime[N] <- T1 # inter-event time
+  }
+  return(list(time=eventsTime, queue=queue))
+}
+```
+
+```{r}
+result1 <- MM1.queue(lambda = 1, mu = 2, simul.time = 100)
+plot(cumsum(result1[[1]]), result1[[2]],
+     type="s", xlab="Time",ylab="Queue length", main="M/M/1 Simulation")
+```
+
+```{r}
+result2 <- MM1.queue(lambda = 10, mu = 11, simul.time = 100)
+plot(cumsum(result2[[1]]), result2[[2]],
+     type="s", xlab="Time",ylab="Queue length", main="M/M/1 Simulation")
+```
+
+
+
+<br>
+
+## 4.1
+### a) the estimator of $l$
+
+```{r}
+set.seed(7)
+
+## A
+N <- 100
+x <- runif(N, -2, 2)
+ya <- 4*exp(-x^2/2)
+(lAhat <- mean(ya))
+
+## B
+x <- rnorm(N)
+yb <- sqrt(2*pi)*I(x>=-2 & x<=2)
+(lBhat <- mean(yb))
+```
+
+### b) the relative error of $\hat{l}$ 
+
+B의 relative error가 더 작다.
+```{r}
+lAsd <- sd(ya)
+(REa <- lAsd/(lAhat*sqrt(N)))
+
+lBsd <- sd(yb)
+(REb <- lBsd/(lBhat*sqrt(N)))
+
+```
+
+### c) C.I
+
+B의 C.I가 더 짧다.
+```{r}
+(CIa <- c(lAhat+qnorm(0.025)*lAsd/sqrt(N),
+          lAhat+qnorm(0.975)*lAsd/sqrt(N)) )
+
+(CIb <- c(lBhat+qnorm(0.025)*lBsd/sqrt(N),
+          lBhat+qnorm(0.975)*lBsd/sqrt(N)) )
+```
+
+
+### d) how large N?
+
+약 15만회
+
+```{r}
+(N <- ceiling((qnorm(0.975)*lBsd)^2 / (0.0005*lBhat)^2))
+
+x <- rnorm(N)
+yb <- sqrt(2*pi)*I(x>=-2 & x<=2)
+(lBhat <- mean(yb))
+
+
+## true
+l_f <- function(x) exp(-x^2/2)
+( l <- integrate(l_f, -2, 2) )
+```
+
+<br>
+<br>
+
+## 4.4 Reliability of the bridge system
+```{r}
+set.seed(1)
+p <- c(0.7,0.6,0.5,0.4,0.3)
+x <- rep(0, length(p))
+N <- 100
+
+Hx <- replicate(N, {
+  for(i in 1:length(p)) x[i] <- rbinom(1, 1, p[i])
+  H <- (1-x[1]*x[4])*(1-x[2]*x[5])*(1-x[1]*x[3]*x[5])*(1-x[2]*x[3]*x[4])
+})
+
+lhat <- mean(Hx)
+S <- sd(Hx)
+RE.hat <- S/(lhat*sqrt(N))
+RE.hat
+
+## relative error < 0.01
+ceiling((RE.hat/0.01)^2*N)
+```
+
+약 10000개 정도 사용하면 RE의 추정값이 0.01보다 작아지게 된다.
+
+<br>
+<br>
+
+## 4.5
+
+a. Gamma($\lambda_i$, $\beta_i$), $\lambda_i=i, \; , \beta_i=i$
+
+```{r}
+lhat <- replicate(1000, {
+  x <- rep(0,5)
+  for(i in 1:5) x[i] <- rgamma(1, shape = i, scale = i) 
+  H <- min(c(x[1]+x[2], x[1]+x[4]+x[5], x[3]+x[4]))
+  H
+})
+
+## point estimates
+mean(lhat)
+
+## C.I
+lower <- mean(lhat)+qnorm(0.025)*sd(lhat)/sqrt(N)
+upper <- mean(lhat)+qnorm(0.975)*sd(lhat)/sqrt(N)
+print(c(lower, upper))
+```
+
+<br>
+
+b. $Ber(p_i), p_i=1/2i$
+```{r}
+lhat <- replicate(1000, {
+  x <- rep(0,5)
+  for(i in 1:5) x[i] <- rbinom(1, 1, 1/(2*i)) 
+  H <- min(c(x[1]+x[2], x[1]+x[4]+x[5], x[3]+x[4]))
+  H
+})
+
+## point estimates
+mean(lhat)
+
+## C.I
+lower <- mean(lhat)+qnorm(0.025)*sd(lhat)/sqrt(N)
+upper <- mean(lhat)+qnorm(0.975)*sd(lhat)/sqrt(N)
+print(c(lower, upper))
+```
+
+<br>
+<br>
+
+## 4.8
+
+### M/M/1 queue
+```{r}
+result <- MM1.queue(lambda = 1, mu = 2, simul.time = 10000)
+queue <- result[[2]]
+```
+
+<br>
+
+a. batch means
+```{r}
+M <- 10000
+burnin <- 100
+N <- 30
+t <- (M-burnin)/N
+Mean <- rep(0,N)
+
+batch_queue <- queue[(burnin+1):length(queue)]
+for(k in 1:N) Mean[k] <- mean(batch_queue[((k-1)*t+1):(k*t)])
+batch.mean <- mean(Mean)
+batch.mean
+```
+
+<br>
+
+b. regenerative method
+```{r}
+time <- which(queue==0)
+tau <- sapply(1:(length(time)-1), function(i) time[(i+1)]-time[i] )  # cycle length
+cut <- cumsum(tau)
+R <- sapply(1:(length(time)-1), function(i) sum( queue[time[i]:cut[i]] )) # reward
+
+tauhat <- mean(tau)
+Rhat <- mean(R)
+lhat <- Rhat/tauhat
+lhat
+```
+
+<br>
+
+c. relative width < 0.05를 만족하는 slmulation time 
+
+- batch mean : 10,000회
+
+```{r}
+set.seed(7)
+result <- MM1.queue(lambda = 1, mu = 2, simul.time = 10000)
+queue <- result[[2]]
+
+burnin <- 100
+N <- 30
+t <- (M-burnin)/N
+Mean <- rep(0,N)
+
+batch_queue <- queue[(burnin+1):length(queue)]
+for(k in 1:N) Mean[k] <- mean(batch_queue[((k-1)*t+1):(k*t)])
+batch.mean <- mean(Mean)
+batch.mean
+
+
+## relative width - batch mean
+relative.width <- (2*qnorm(0.975)*sd(Mean)/sqrt(t))/batch.mean
+relative.width
+
+```
+
+<br>
+
+- regenerative method : 100만회
+```{r}
+set.seed(7)
+result <- MM1.queue(lambda = 1, mu = 2, simul.time = 1000000)
+queue <- result[[2]]
+
+time <- which(queue==0)
+tau <- sapply(1:(length(time)-1), function(i) time[(i+1)]-time[i] )  # cycle length
+cut <- cumsum(tau)
+R <- sapply(1:(length(time)-1), function(i) sum( queue[time[i]:cut[i]] )) # reward
+
+tauhat <- mean(tau)
+Rhat <- mean(R)
+lhat <- Rhat/tauhat
+lhat
+
+
+## relative width - regenerative method
+Z <- R-lhat*tau
+  
+relative.width <- (2*qnorm(0.975)*sd(Z)/sqrt(length(R)))/lhat
+relative.width
+```
+
+

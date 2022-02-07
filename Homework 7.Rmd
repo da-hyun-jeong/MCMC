@@ -1,0 +1,101 @@
+## 6.6
+b)
+```{r}
+N = 10^4
+x = y = 0
+rho = c(0,0.7,0.9)
+
+Gibbs.sample = function(N, rho) {
+  sample = matrix(0, nrow = N, ncol = 2)
+  for(k in 1:N) {
+    x = rnorm(1)*sqrt(1-rho^2)+rho*y
+    y = rnorm(1)*sqrt(1-rho^2)+rho*x
+    sample[k,] = c(x, y)
+  }  
+  return(sample)
+}
+
+par(mfrow=c(1,3))
+for(k in 1:length(rho)) {
+  res = Gibbs.sample(N, rho[k])
+  plot(res[,1], res[,2], xlab="x", ylab="y")
+}
+  
+
+```
+
+<br>
+<br>
+
+## 6.12
+```{r}
+N = 10^5 # iteration
+n = 100  # sample size
+x = rnorm(n)
+
+sample = matrix(0, nrow = N, ncol = 2)
+  
+# initial point
+sample.mean = mean(x)
+var = var(x)
+  
+mu = sample.mean
+for(k in 1:N) {
+  # mu
+  mu = sample.mean+sqrt(var/n)*rnorm(1)
+  # sigma^2
+  var.mu = sum((x-mu)^2)/n
+  sig.sq = 1/rgamma(1, shape = n/2, rate = 1/(n*var.mu/2) )
+  sample[k,] = c(mu, sig.sq)
+}
+
+
+hist(sample[,1], main = "", xlab = expression(paste(mu, "|", x)))
+hist(sample[,2], main = "", xlab = expression(paste(sigma^2, "|", x)))
+
+```
+
+## 6.14
+b) ZIP model random variable 생성
+$$ 
+X_i = R_iY_i \\
+where \; Y_i \sim \text{Poi}(\lambda), \; R_i \sim \text{Ber}(p), \; p \sim \text{U}(0,1)
+$$
+
+```{r}
+n = 100
+p = 0.3
+lambda = 2
+
+x = rpois(n, lambda)*(runif(n)<p) # p=0.3이므로 이것보다 작은 수들 생성
+```
+
+c) Gibbs sampler
+사전정보가 없으므로 $\lambda$의 사전분포는 Gamma(1,1)=U(0,1)로 선택한다.
+```{r}
+n = 100
+p = 0.3
+lambda = 2
+
+x = rpois(n, lambda)*(runif(n)<p)
+
+P = runif(1)
+lam = rgamma(1,1)
+r = runif(n)<P
+
+sample = matrix(0, nrow = N, ncol = 2)
+for(k in 1:N) {
+  lam = rgamma(1, shape = 1+sum(x), rate = 1+sum(r))
+  P = rbeta(1, 1+sum(r), n+1-sum(r))
+  prob = exp(-lam)*P / (exp(-lam)*P + (1-P)*(x==0))
+  R = runif(n) < prob
+  sample[k,] = c(P, lam)
+}
+
+
+quantile(sample[,1], c(0.025, 0.975)) # C.I for p
+qbeta(c(0.025, 0.975), 1+sum(r), n+1-sum(r))
+
+quantile(sample[,2], c(0.025, 0.975)) # C.I for lambda
+qgamma(c(0.025, 0.975), shape = 1+sum(x), rate = 1+sum(r))
+```

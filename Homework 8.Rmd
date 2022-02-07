@@ -1,0 +1,100 @@
+```{r}
+library(dplyr)
+```
+
+## 8.2
+```{r}
+N = 1000
+rho = 0.05
+N1 = 10^6
+gamma = 32
+l = exp(-gamma) # exact value of rare event
+
+set.seed(104)
+v = 1 # reference parameter
+res = matrix(c(0,1), ncol=2)
+for(i in 1:4) {
+  x = rexp(N, rate = 1/v) 
+  gam = as.vector(quantile(x, probs = (1-rho)))  
+  if(gam >= gamma) gam = gamma  
+  I = x>gam
+  w = exp(-(x[I] * (1-1/v) )) # likelihood ratio
+  v = sum(x[I]*w) / sum(w) # update
+  res = rbind(res, c(gam,v))
+  
+  if(gam == gamma) break
+}
+
+## Table 8.1
+rownames(res) = seq_len(nrow(res))-1
+colnames(res) = c("rt", "vt")
+res
+
+
+
+## relative error & 95% C.I
+y = rexp(N1, rate = 1/v)  # random number
+I = y>gamma
+w = exp(-y * (1-1/v) )*v # likelihood ratio
+lhat = mean(w*I)
+RE = sd(w*I(y>gamma))/sqrt(N1)/lhat
+CI = lhat*c(1-qnorm(0.975)*RE, 1+qnorm(0.975)*RE)
+RE # RE
+CI # CI
+(l > CI[1]) & (l < CI[2])
+```
+
+## 8.3
+```{r}
+set.seed(5)
+v = 33
+x = -log(runif(N))*v
+RE = sqrt(v^2/(2*v-1) *exp(32/v)-1)/sqrt(N1); RE
+RE2 = sqrt(exp(32)-1)/N/sqrt(N1); RE2
+(RE2*N1/RE)^2 # n
+```
+
+## 8.4
+```{r}
+N = 1000
+rho = 0.1
+N1 = 10^5
+gamma = 6
+
+S = function(X) {
+  path <- matrix(0, nrow=nrow(X), ncol=4)
+  path[,1] <- X[,1]+X[,4]
+  path[,2] <- X[,1]+X[,3]+X[,5]
+  path[,3] <- X[,2]+X[,3]+X[,4]
+  path[,4] <- X[,2]+X[,5]
+  apply(path, 1, min)
+}
+
+set.seed(174)
+u = c(1, 1, 0.3, 0.2, 0.1)
+v = u
+res = matrix(c(0,u), ncol=6)
+
+for(i in 1:1000) {
+  X = matrix(-log(runif(N)), ncol=5) %*% diag(v)
+  gam = as.vector(quantile(S(X), probs = (1-rho)))  
+  if(gam >= gamma) gam = gamma  
+  
+  I = S(X)>gam
+  X.elite = X[I,]
+  w = exp(-(X.elite %*% (1/u-1/v))) * prod(v/u)
+  w = w/sum(w)
+  v = apply(X.elite, 2, function(y) sum(w*y))
+  res = rbind(res, c(gam,v))
+  if(gam == gamma) break    
+}
+
+## Table 8.3
+rownames(res) = seq_len(nrow(res))-1
+colnames(res) = c("rt", paste0("v", 1:5))
+res
+```
+
+
+
+
